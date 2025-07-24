@@ -1,0 +1,41 @@
+{
+  "name": "clone-contract",
+  "version": "0.0.0",
+  "description": "A tool to clone smart contract source code from various blockchains",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "clone-contract": "./bin/clone.js"
+  },
+  "scripts": {
+    "build": "node scripts/extract-chains.js",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "clone",
+    "fetch",
+    "blockchain",
+    "smart-contract",
+    "source-code",
+    "ethereum",
+    "solidity"
+  ],
+  "author": "wmzy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wmzy/clone-contract.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "bin/",
+    "chains.json",
+    "README.md"
+  ],
+  "devDependencies": {
+    "viem": "^2.33.0"
+  }
+}
