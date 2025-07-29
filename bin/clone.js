@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile, readFile } from "fs/promises";
+import { mkdir, writeFile, readFile, readdir } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -96,7 +96,7 @@ async function parseArgs(args) {
 
   if (chainIndex === -1) {
     contract = args[0];
-    outputRoot = args[1];
+    outputRoot = args[1]; // 可选，如果不提供则后面根据 contractName 生成
   } else {
     chain = args[chainIndex + 1];
     const remainingArgs = [
@@ -104,7 +104,7 @@ async function parseArgs(args) {
       ...args.slice(chainIndex + 2),
     ];
     contract = remainingArgs[0];
-    outputRoot = remainingArgs[1];
+    outputRoot = remainingArgs[1]; // 可选，如果不提供则后面根据 contractName 生成
   }
   const parsed = await tryParseExplorerUrl(contract);
   contract = parsed.contractAddress;
@@ -127,14 +127,19 @@ async function fetchSource(contractAddress, chainOrChainId) {
   const [source, contractName, ext] = api.proxyAddress
     ? [api.proxyResult, api.proxyContractName, api.proxyExt]
     : [api.result, api.contractName, api.ext];
+
+  if (!source) throw new Error("No source found");
+
   try {
     const result = JSON.parse(source);
     return {
+      contractName,
       sources: result.sources,
       remappings: result.settings?.remappings,
     };
   } catch (e) {
     return {
+      contractName,
       sources: {
         [`${contractName}.${ext}`]: {
           content: source,
@@ -148,6 +153,22 @@ async function ensureDir(dir) {
   await mkdir(dir, { recursive: true });
 }
 
+async function checkOutputDirectory(outputRoot) {
+  try {
+    const files = await readdir(outputRoot);
+    if (files.length > 0) {
+      console.error(
+        `❌ Error: Directory '${outputRoot}' is not empty. Please use an empty directory.`
+      );
+      process.exit(1);
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+
 async function writeSource(filePath, sourceCode, outputRoot) {
   const fullPath = join(outputRoot, filePath);
   const dir = dirname(fullPath);
@@ -159,9 +180,9 @@ async function writeSource(filePath, sourceCode, outputRoot) {
 async function main() {
   const args = process.argv.slice(2);
 
-  if (args.length < 2 || args.includes("--help") || args.includes("-h")) {
+  if (args.length < 1 || args.includes("--help") || args.includes("-h")) {
     console.log(`
-Usage: clone-contract [--chain <chain-name>] <contract> <directory>
+Usage: clone-contract [--chain <chain-name>] <contract> [directory]
 
 Arguments:
   contract            Smart contract address or explorer URL
@@ -170,7 +191,7 @@ Arguments:
                                 https://polygonscan.com/token/0x1234...abcd
                                 https://vscode.blockscan.com/1/0x1234...abcd
                                 https://vscode.blockscan.com/ethereum/0x1234...abcd
-  directory           Directory where the source files will be saved
+  directory           Directory where the source files will be saved (default: ./{contractName})
 
 Options:
   --chain <name|id>   Blockchain network name or chain ID (default: ethereum)
@@ -180,23 +201,34 @@ Options:
   --help, -h          Show this help message
 
 Examples:
-  clone-contract 0x1234...abcd ./contracts
-  clone-contract --chain polygon 0x1234...abcd ./contracts
-  clone-contract --chain 137 0x1234...abcd ./contracts
-  clone-contract https://etherscan.io/address/0x1234...abcd ./contracts
-  clone-contract https://polygonscan.com/token/0x1234...abcd ./contracts
-  clone-contract https://vscode.blockscan.com/5000/0x1234...abcd ./contracts
-  clone-contract https://vscode.blockscan.com/mantle/0x1234...abcd ./contracts
+  clone-contract 0x1234...abcd                                    # Save to ./ContractName
+  clone-contract 0x1234...abcd ./contracts                        # Save to ./contracts
+  clone-contract --chain polygon 0x1234...abcd                    # Use polygon chain
+  clone-contract --chain 137 0x1234...abcd ./contracts            # Use chain ID 137
+  clone-contract https://etherscan.io/address/0x1234...abcd       # From Etherscan URL
+  clone-contract https://vscode.blockscan.com/5000/0x1234...abcd  # From Blockscan URL
     `);
     return;
   }
 
-  const { chain, contract, outputRoot } = await parseArgs(args);
+  const {
+    chain,
+    contract,
+    outputRoot: providedOutputRoot,
+  } = await parseArgs(args);
 
   console.log(`Fetching contract source for ${contract} on ${chain}...`);
 
   try {
-    const { sources, remappings } = await fetchSource(contract, chain);
+    const { sources, remappings, contractName } = await fetchSource(
+      contract,
+      chain
+    );
+
+    // 如果没有指定输出目录，使用当前目录 + contractName
+    const outputRoot = providedOutputRoot || join(process.cwd(), contractName);
+
+    await checkOutputDirectory(outputRoot);
 
     await Promise.all(
       Object.entries(sources).map(([key, value]) =>

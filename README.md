@@ -24,7 +24,7 @@ npx clone-contract ...
 ### Command Line Interface
 
 ```bash
-clone-contract [--chain <name|id>] <contract> <directory>
+clone-contract [--chain <name|id>] <contract> [directory]
 ```
 
 ### Arguments
@@ -33,7 +33,7 @@ clone-contract [--chain <name|id>] <contract> <directory>
   - Address format: `0x1234...abcd`
   - Explorer URL format: `https://etherscan.io/address/0x1234...abcd`
   - Blockscan format: `https://vscode.blockscan.com/chainId/0x1234...abcd` or `https://vscode.blockscan.com/chainName/0x1234...abcd`
-- `directory`: Directory where the source files will be saved
+- `directory`: Directory where the source files will be saved (default: `./{contractName}`)
 
 ### Options
 
@@ -46,26 +46,22 @@ clone-contract [--chain <name|id>] <contract> <directory>
 ### Examples
 
 ```bash
-# Fetch Ethereum contract source code (by address)
+# Fetch to auto-generated directory (./ContractName)
+clone-contract 0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c
+
+# Fetch to specific directory
 clone-contract 0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./contracts
 
-# Fetch from Polygon network (by chain name)
-clone-contract --chain polygon 0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./contracts
-
-# Fetch from Polygon network (by chain ID)
+# Use specific chain
+clone-contract --chain polygon 0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c
 clone-contract --chain 137 0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./contracts
 
-# Fetch using Etherscan URL (auto-detects Ethereum)
-clone-contract https://etherscan.io/address/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./contracts
-
-# Fetch using Polygonscan URL (auto-detects Polygon)
+# Use explorer URLs (auto-detects chain)
+clone-contract https://etherscan.io/address/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c
 clone-contract https://polygonscan.com/token/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./contracts
 
-# Fetch using BSC scan URL (auto-detects BSC)
-clone-contract https://bscscan.com/address/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./contracts
-
-# Fetch using Blockscan URL (supports chain by ID or name)
-clone-contract https://vscode.blockscan.com/5000/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./contracts
+# Use Blockscan URLs
+clone-contract https://vscode.blockscan.com/5000/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c
 clone-contract https://vscode.blockscan.com/mantle/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./contracts
 ```
 
