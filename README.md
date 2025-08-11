@@ -24,7 +24,7 @@ npx clone-contract ...
 ### Command Line Interface
 
 ```bash
-clone-contract [--chain <name|id>] <contract> [directory]
+clone-contract [options] <contract> [directory]
 ```
 
 ### Arguments
@@ -41,6 +41,10 @@ clone-contract [--chain <name|id>] <contract> [directory]
   - Supported networks: ethereum, bsc, polygon, arbitrum, optimism, fantom, avalanche, and more
   - Also supports chain IDs: 1 (ethereum), 56 (bsc), 137 (polygon), 42161 (arbitrum), 10 (optimism), etc.
   - **Note**: This parameter is ignored when using explorer URLs (chain is auto-detected)
+- `-m, --merge`: Allow merging into non-empty directories
+  - Skip files with identical content
+  - Save conflicting files with `.conflict` suffix
+  - Show warnings for conflicts
 - `--help, -h`: Show help message
 
 ### Examples
@@ -63,6 +67,10 @@ clone-contract https://polygonscan.com/token/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6
 # Use Blockscan URLs
 clone-contract https://vscode.blockscan.com/5000/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c
 clone-contract https://vscode.blockscan.com/mantle/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./contracts
+
+# Merge mode examples
+clone-contract -m 0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./existing-dir
+clone-contract --merge https://etherscan.io/address/0xA0b86a33E6441a9C7e0a4F7e1c8b9b8c6a1c1c1c ./project/contracts
 ```
 
 ## Features
@@ -71,6 +79,7 @@ clone-contract https://vscode.blockscan.com/mantle/0xA0b86a33E6441a9C7e0a4F7e1c8
 - ✅ **Auto-detects chain from explorer URLs** 
 - ✅ Supports both contract addresses and explorer URLs
 - ✅ **Supports Blockscan URLs with chain ID or chain name**
+- ✅ **Smart merge mode with conflict resolution**
 - ✅ Automatically handles proxy contracts
 - ✅ Downloads all source files and dependencies
 - ✅ Preserves directory structure
@@ -111,12 +120,38 @@ clone-contract https://vscode.blockscan.com/mantle/0xA0b86a33E6441a9C7e0a4F7e1c8
 
 For a complete list of supported networks, visit [Blockscan](https://vscode.blockscan.com/).
 
+## Merge Mode
+
+The `--merge` (or `-m`) flag enables intelligent merging into existing directories:
+
+### Behavior
+- **Identical files**: Skipped with message `Skipped: file.sol (identical content)`
+- **New files**: Written normally
+- **Conflicting files**: Saved with `.conflict` suffix (e.g., `Contract.conflict1.sol`)
+- **Multiple conflicts**: Incremental numbering (`.conflict1`, `.conflict2`, etc.)
+
+### Examples
+```bash
+# First download
+clone-contract 0x123... ./contracts
+# Wrote: ./contracts/Token.sol
+# Wrote: ./contracts/interfaces/IERC20.sol
+
+# Later update with merge
+clone-contract -m 0x456... ./contracts  
+# Skipped: ./contracts/interfaces/IERC20.sol (identical content)
+# Wrote: ./contracts/NewToken.sol
+# ⚠️ Warning: File conflict detected for ./contracts/Token.sol
+#     Saved new content as: ./contracts/Token.conflict1.sol
+```
+
 ## Output
 
 The tool will create the specified output directory and save:
 
 - All contract source files with their original directory structure
 - `remappings.txt` file (if remappings are available)
+- In merge mode: conflict files with numbered suffixes when content differs
 
 ## Requirements
 

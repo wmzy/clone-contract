@@ -92,16 +92,29 @@ async function tryParseExplorerUrl(url) {
 
 async function parseArgs(args) {
   const chainIndex = args.indexOf("--chain");
-  let contract, outputRoot, chain;
+  const mergeIndex = Math.max(args.indexOf("-m"), args.indexOf("--merge"));
+  let contract,
+    outputRoot,
+    chain,
+    merge = false;
 
-  if (chainIndex === -1) {
+  // 处理 merge 参数
+  if (mergeIndex !== -1) {
+    merge = true;
+    args = args.filter((_, index) => index !== mergeIndex);
+  }
+
+  // 重新计算 chainIndex（因为可能移除了 merge 参数）
+  const updatedChainIndex = args.indexOf("--chain");
+
+  if (updatedChainIndex === -1) {
     contract = args[0];
     outputRoot = args[1]; // 可选，如果不提供则后面根据 contractName 生成
   } else {
-    chain = args[chainIndex + 1];
+    chain = args[updatedChainIndex + 1];
     const remainingArgs = [
-      ...args.slice(0, chainIndex),
-      ...args.slice(chainIndex + 2),
+      ...args.slice(0, updatedChainIndex),
+      ...args.slice(updatedChainIndex + 2),
     ];
     contract = remainingArgs[0];
     outputRoot = remainingArgs[1]; // 可选，如果不提供则后面根据 contractName 生成
@@ -110,7 +123,7 @@ async function parseArgs(args) {
   contract = parsed.contractAddress;
   chain = chain || parsed.chainId || "ethereum";
 
-  return { chain, contract, outputRoot };
+  return { chain, contract, outputRoot, merge };
 }
 
 async function fetchSource(contractAddress, chainOrChainId) {
@@ -158,7 +171,7 @@ async function checkOutputDirectory(outputRoot) {
     const files = await readdir(outputRoot);
     if (files.length > 0) {
       console.error(
-        `❌ Error: Directory '${outputRoot}' is not empty. Please use an empty directory.`
+        `❌ Error: Directory '${outputRoot}' is not empty. Please use an empty directory or use --merge flag.`
       );
       process.exit(1);
     }
@@ -169,12 +182,50 @@ async function checkOutputDirectory(outputRoot) {
   }
 }
 
-async function writeSource(filePath, sourceCode, outputRoot) {
+async function writeSourceWithMerge(filePath, sourceCode, outputRoot) {
   const fullPath = join(outputRoot, filePath);
-  const dir = dirname(fullPath);
-  await ensureDir(dir);
-  await writeFile(fullPath, sourceCode, "utf8");
-  console.log(`Wrote: ${fullPath}`);
+  await ensureDir(dirname(fullPath));
+
+  const generateFileName = (counter) => {
+    if (counter === 0) return fullPath;
+
+    const baseName = fullPath.replace(/\.[^/.]+$/, "");
+    const extension = fullPath.match(/\.[^/.]+$/)?.[0] || "";
+    return `${baseName}.conflict${counter}${extension}`;
+  };
+
+  const tryWriteFile = async (counter = 0) => {
+    if (counter > 1000) throw new Error("Too many conflicts");
+
+    const targetPath = generateFileName(counter);
+
+    try {
+      await writeFile(targetPath, sourceCode, { encoding: "utf8", flag: "wx" });
+
+      if (counter === 0) {
+        console.log(`Wrote: ${targetPath}`);
+      } else {
+        console.log(`⚠️  Warning: File conflict detected for ${fullPath}`);
+        console.log(`    Saved new content as: ${targetPath}`);
+      }
+
+      return;
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+
+      if (counter === 0) {
+        const existingContent = await readFile(targetPath, "utf8");
+        if (existingContent === sourceCode) {
+          console.log(`Skipped: ${targetPath} (identical content)`);
+          return;
+        }
+      }
+
+      await tryWriteFile(counter + 1);
+    }
+  };
+
+  await tryWriteFile();
 }
 
 async function main() {
@@ -182,7 +233,7 @@ async function main() {
 
   if (args.length < 1 || args.includes("--help") || args.includes("-h")) {
     console.log(`
-Usage: clone-contract [--chain <chain-name>] <contract> [directory]
+Usage: clone-contract [options] <contract> [directory]
 
 Arguments:
   contract            Smart contract address or explorer URL
@@ -198,6 +249,10 @@ Options:
                       Examples: ethereum, bsc, polygon, arbitrum, optimism
                       Or chain IDs: 1, 56, 137, 42161, 10, etc.
                       Note: Ignored when using explorer URL (chain auto-detected)
+  -m, --merge         Allow merging into non-empty directories
+                      - Skip files with identical content
+                      - Save conflicting files with .conflict suffix
+                      - Show warnings for conflicts
   --help, -h          Show this help message
 
 Examples:
@@ -205,6 +260,7 @@ Examples:
   clone-contract 0x1234...abcd ./contracts                        # Save to ./contracts
   clone-contract --chain polygon 0x1234...abcd                    # Use polygon chain
   clone-contract --chain 137 0x1234...abcd ./contracts            # Use chain ID 137
+  clone-contract -m 0x1234...abcd ./existing-dir                  # Merge into existing directory
   clone-contract https://etherscan.io/address/0x1234...abcd       # From Etherscan URL
   clone-contract https://vscode.blockscan.com/5000/0x1234...abcd  # From Blockscan URL
     `);
@@ -215,6 +271,7 @@ Examples:
     chain,
     contract,
     outputRoot: providedOutputRoot,
+    merge,
   } = await parseArgs(args);
 
   console.log(`Fetching contract source for ${contract} on ${chain}...`);
@@ -226,25 +283,32 @@ Examples:
     );
 
     // 如果没有指定输出目录，使用当前目录 + contractName
-    const outputRoot = providedOutputRoot || join(process.cwd(), contractName);
+    const outputRoot =
+      providedOutputRoot ||
+      `./${contractName || `Contract_${contract.slice(0, 8)}`}`;
 
-    await checkOutputDirectory(outputRoot);
+    if (!merge) {
+      await checkOutputDirectory(outputRoot);
+    }
 
     await Promise.all(
       Object.entries(sources).map(([key, value]) =>
-        writeSource(key, value.content, outputRoot)
+        writeSourceWithMerge(key, value.content, outputRoot)
       )
     );
 
     if (remappings) {
-      const remappingPath = join(outputRoot, "remappings.txt");
-      await writeFile(remappingPath, remappings.join("\n"), "utf8");
-      console.log(`Wrote: ${remappingPath}`);
+      const remappingContent = remappings.join("\n");
+      await writeSourceWithMerge(
+        "remappings.txt",
+        remappingContent,
+        outputRoot
+      );
     }
 
     console.log("✅ Contract source code fetched successfully!");
   } catch (error) {
-    console.error("❌ Error fetching contract source:", error.message);
+    console.error("❌ Error fetching contract source:", error);
     process.exit(1);
   }
 }
