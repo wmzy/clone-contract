@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import "set-env-http-proxy-agent";
 import { mkdir, writeFile, readFile, readdir } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";

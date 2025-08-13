@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      set-env-http-proxy-agent:
+        specifier: ^0.1.2
+        version: 0.1.2
     devDependencies:
       viem:
         specifier: ^2.33.0
@@ -64,6 +68,14 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
+
+  set-env-http-proxy-agent@0.1.2:
+    resolution: {integrity: sha512-zhrv3waMrLvA5zt5LQtQyw5hrKI4mBDhh3Ha1cAxHgD+xOFtDXxCMDTCuoTe+n2+hXohMdJCd18lEaGCUpkp+g==}
+    engines: {node: '>=20.18.1'}
+
+  undici@7.12.0:
+    resolution: {integrity: sha512-GrKEsc3ughskmGA9jevVlIOPMiiAHJ4OFUtaAH+NhfTUSiZ1wMPIQqQvAJUrJspFXJt3EBWgpAeoHEDVT1IBug==}
+    engines: {node: '>=20.18.1'}
 
   viem@2.33.0:
     resolution: {integrity: sha512-SxBM3CmeU+LWLlBclV9MPdbuFV8mQEl0NeRc9iyYU4a7Xb5sr5oku3s/bRGTPpEP+1hCAHYpM09/ui3/dQ6EsA==}
@@ -130,6 +142,12 @@ snapshots:
       eventemitter3: 5.0.1
     transitivePeerDependencies:
       - zod
+
+  set-env-http-proxy-agent@0.1.2:
+    dependencies:
+      undici: 7.12.0
+
+  undici@7.12.0: {}
 
   viem@2.33.0:
     dependencies:

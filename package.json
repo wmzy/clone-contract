@@ -37,5 +37,8 @@
   ],
   "devDependencies": {
     "viem": "^2.33.0"
+  },
+  "dependencies": {
+    "set-env-http-proxy-agent": "^0.1.2"
   }
 }
