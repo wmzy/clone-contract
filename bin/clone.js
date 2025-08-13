@@ -307,7 +307,7 @@ Examples:
       );
     }
 
-    console.log("✅ Contract source code fetched successfully!");
+    console.log(`✅ Contract [${contractName}] cloned successfully!`);
   } catch (error) {
     console.error("❌ Error fetching contract source:", error);
     process.exit(1);
